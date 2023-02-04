@@ -201,7 +201,7 @@
 <span id="more"></span>
 
 <p>本教程搭建的wiki用的是github上的wiki.js</p>
-<img src="/posts/14788/image-20230127123218498.png" class="">
+
 
 
 
@@ -217,17 +217,17 @@
 <p>因为我自己不会用linux系统，不熟悉命令，所以需要安装宝塔面板来操作。</p>
 </blockquote>
 <p>​	打开<a target="_blank" rel="noopener external nofollow noreferrer" href="https://www.bt.cn/new/download.html">宝塔官网</a>，并进入到下载界面</p>
-<img src="/posts/14788/image-20230127120225348.png" class="">
+
 
 
 
 <p>我是用的是linux的服务器，所以直接往下滑，可以看到这里有一个在线安装和安装脚本，如果闲麻烦可以直接使用在线安装，在线安装按照要求填入参数即可安装</p>
-<img src="/posts/14788/image-20230127120356376.png" class="">
+
 
 
 
 <p>输入完参数后点击安装会弹出这个窗口，这里选择第一个，然后点击安装</p>
-<img src="/posts/14788/image-20230127120903169.png" class="">
+
 
 
 
@@ -235,7 +235,7 @@
 <p>注意：phpmyadmin必须要安装php</p>
 </blockquote>
 <p>点击安装后，会跳转到这个页面，等待安装即可</p>
-<img src="/posts/14788/image-20230127121103044.png" class="">
+
 
 
 
@@ -243,12 +243,12 @@
 <p>脚下留心：宝塔面板的默认端口是8888，记得在服务器的安全策略中开放8888端口</p>
 </blockquote>
 <p>安装成功后会显示配置信息</p>
-<img src="/posts/14788/image-20230127124224072.png" class="">
+
 
 
 
 <h4 id="安装node-js"><a href="#安装node-js" class="headerlink" title="安装node.js"></a>安装node.js</h4><p>使用xshell连接服务器：文件&gt;新建，就会弹出如下窗口，然后输入名称，主机就是ip地址，然后点击连接即可</p>
-<img src="/posts/14788/image-20230127125801459.png" class="">
+
 
 
 
@@ -261,7 +261,7 @@
 <figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta prompt_"># </span><span class="language-bash">清除npm cache</span></span><br><span class="line">npm cache clean -force</span><br><span class="line"><span class="meta prompt_"># </span><span class="language-bash">更新版本(稳定版 stable ,最新版 latest ,指定版本号16.18.1)</span></span><br><span class="line">n latest	</span><br><span class="line">    # 安装当前稳定版本   </span><br><span class="line">    n stable或者sudo n stable</span><br><span class="line"> </span><br><span class="line">    # 安装最新版本的</span><br><span class="line">    n latest或者sudo n latest</span><br><span class="line"> </span><br><span class="line">    # 安装指定版本的node</span><br><span class="line">    n v16.18.1</span><br><span class="line"> </span><br><span class="line">    # 卸载指定的node版本</span><br><span class="line">      n  rm v16.18.1</span><br><span class="line"></span><br></pre></td></tr></table></figure>
 
 <p>更换成功后使用<code>node -v</code>来查看版本</p>
-<img src="/posts/14788/image-20230127124519231.png" class="">
+
 
 
 
@@ -270,15 +270,15 @@
 <p>如果嫌麻烦，宝塔面板也可以安装node.js，可以在宝塔面板进行安装，在宝塔面板中点击网站-&lt;node项目即可安装</p>
 </blockquote>
 <h4 id="配置数据库"><a href="#配置数据库" class="headerlink" title="配置数据库"></a>配置数据库</h4><p>我用的是本地数据库，所以直接在宝塔添加</p>
-<img src="/posts/14788/image-20230127125000554.png" class="">
+
 
 <p>点击添加之后，弹出窗口，按照要求输入，如果数据库是远程的，就点击管理远程服务器</p>
-<img src="/posts/14788/image-20230127125421320.png" class="">
+
 
 
 
 <p>添加成功后是这样的</p>
-<img src="/posts/14788/image-20230127125612297.png" class="">
+
 
 
 
@@ -298,33 +298,33 @@
 
 <p>打开使用输入i进入编辑模式，编辑好了之后按esc退出编辑模式，然后输入:wq保存并退出</p>
 <p>执行<code>node server</code>即可运行wiki.js</p>
-<img src="/posts/14788/image-20230127131513788.png" class="">
+
 
 
 
 <p>输出这些就代表运行成功了</p>
 <h4 id="宝塔配置"><a href="#宝塔配置" class="headerlink" title="宝塔配置"></a>宝塔配置</h4><p>因为直接访问端口我觉得非常麻烦，所以我需要宝塔安装了nginx并配置反向代理</p>
 <p>先创建站点</p>
-<img src="/posts/14788/image-20230127131841354.png" class="">
+
 
 
 
 <p>点击创建站点后会弹出这个窗口，按照要求输入域名即可提交</p>
-<img src="/posts/14788/image-20230127132303254.png" class="">
+
 
 
 
 <p>创建成功后是这样的</p>
-<img src="/posts/14788/image-20230127132413393.png" class="">
+
 
 
 
 <p>然后点击设置&gt;反向代理&gt;添加反向代理</p>
-<img src="/posts/14788/image-20230127132502901.png" class="">
 
 
 
-<img src="/posts/14788/image-20230127132512610.png" class="">
+
+
 
 <p>打开后弹出这个窗口，按照要求输入，然后点击提交</p>
 <blockquote>
@@ -332,17 +332,17 @@
 </blockquote>
 <h4 id="启用守护进程"><a href="#启用守护进程" class="headerlink" title="启用守护进程"></a>启用守护进程</h4><p>在xshell开启的服务断开连接之后就会关闭，为了保证正常运行，就需要开启进程守护来让程序一直运行</p>
 <p>打开宝塔面板，在软件商店搜索Supervisor并安装</p>
-<img src="/posts/14788/image-20230127135411383.png" class="">
+
 
 
 
 <p>安装成功后点击设置，点击添加守护进程</p>
-<img src="/posts/14788/image-20230127135643481.png" class="">
+
 
 
 
 <p>配置好之后是这样的</p>
-<img src="/posts/14788/image-20230127135714790.png" class="">
+
 
 <p>最后直接访问域名即可</p>
 </div>
