@@ -1,2 +1,2 @@
-http://www.example.com/posts/41074/
-http://www.example.com/posts/14788/
+https://mxyblog.cn/posts/41074/
+https://mxyblog.cn/posts/14788/
