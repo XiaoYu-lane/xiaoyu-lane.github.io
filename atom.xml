@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>云麒火翎_落辰星</title>
+  <icon>https://xiaoyu-lane.github.io/icon.png</icon>
+  <subtitle>小黑屋</subtitle>
+  <link href="https://xiaoyu-lane.github.io/atom.xml" rel="self"/>
+  
+  <link href="https://xiaoyu-lane.github.io/"/>
+  <updated>2025-05-08T16:47:29.000Z</updated>
+  <id>https://xiaoyu-lane.github.io/</id>
+  
+  <author>
+    <name>云麒火翎_落辰星</name>
+    
+  </author>
+  
+  <generator uri="https://hexo.io/">Hexo</generator>
+  
+  <entry>
+    <title>云淇火翎网络安全攻防平台</title>
+    <link href="https://xiaoyu-lane.github.io/products/2025/05/eb16ed253297/"/>
+    <id>https://xiaoyu-lane.github.io/products/2025/05/eb16ed253297/</id>
+    <published>2025-05-08T16:47:29.000Z</published>
+    <updated>2025-05-08T16:47:29.000Z</updated>
+    
+    
+    <summary type="html">云淇火翎网络安全综合攻防平台，一款一站式全流程的综合网络安全竞赛平台</summary>
+    
+    
+    
+    <category term="products" scheme="https://xiaoyu-lane.github.io/categories/products/"/>
+    
+    
+    <category term="CTF平台" scheme="https://xiaoyu-lane.github.io/tags/CTF%E5%B9%B3%E5%8F%B0/"/>
+    
+    <category term="网络安全实训平台" scheme="https://xiaoyu-lane.github.io/tags/%E7%BD%91%E7%BB%9C%E5%AE%89%E5%85%A8%E5%AE%9E%E8%AE%AD%E5%B9%B3%E5%8F%B0/"/>
+    
+    <category term="攻防竞赛平台" scheme="https://xiaoyu-lane.github.io/tags/%E6%94%BB%E9%98%B2%E7%AB%9E%E8%B5%9B%E5%B9%B3%E5%8F%B0/"/>
+    
+    <category term="AWD平台" scheme="https://xiaoyu-lane.github.io/tags/AWD%E5%B9%B3%E5%8F%B0/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>fastjson漏洞不出网利用</title>
+    <link href="https://xiaoyu-lane.github.io/stcs/2023/07/5dfcbb92c2c0/"/>
+    <id>https://xiaoyu-lane.github.io/stcs/2023/07/5dfcbb92c2c0/</id>
+    <published>2023-07-19T07:59:28.000Z</published>
+    <updated>2025-05-08T15:36:47.439Z</updated>
+    
+    
+    <summary type="html">fastjson漏洞不出网利用</summary>
+    
+    
+    
+    <category term="stcs" scheme="https://xiaoyu-lane.github.io/categories/stcs/"/>
+    
+    
+    <category term="渗透" scheme="https://xiaoyu-lane.github.io/tags/%E6%B8%97%E9%80%8F/"/>
+    
+    <category term="红队" scheme="https://xiaoyu-lane.github.io/tags/%E7%BA%A2%E9%98%9F/"/>
+    
+    <category term="fastjson" scheme="https://xiaoyu-lane.github.io/tags/fastjson/"/>
+    
+    <category term="Java漏洞" scheme="https://xiaoyu-lane.github.io/tags/Java%E6%BC%8F%E6%B4%9E/"/>
+    
+    <category term="漏洞复现" scheme="https://xiaoyu-lane.github.io/tags/%E6%BC%8F%E6%B4%9E%E5%A4%8D%E7%8E%B0/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>fastjson反序列化漏洞</title>
+    <link href="https://xiaoyu-lane.github.io/stcs/2023/07/e08e901851f2/"/>
+    <id>https://xiaoyu-lane.github.io/stcs/2023/07/e08e901851f2/</id>
+    <published>2023-07-09T02:21:02.000Z</published>
+    <updated>2025-05-08T18:28:46.628Z</updated>
+    
+    
+    <summary type="html">fastjson反序列化漏洞原理以及复现</summary>
+    
+    
+    
+    <category term="stcs" scheme="https://xiaoyu-lane.github.io/categories/stcs/"/>
+    
+    
+    <category term="渗透" scheme="https://xiaoyu-lane.github.io/tags/%E6%B8%97%E9%80%8F/"/>
+    
+    <category term="红队" scheme="https://xiaoyu-lane.github.io/tags/%E7%BA%A2%E9%98%9F/"/>
+    
+    <category term="fastjson" scheme="https://xiaoyu-lane.github.io/tags/fastjson/"/>
+    
+    <category term="Java漏洞" scheme="https://xiaoyu-lane.github.io/tags/Java%E6%BC%8F%E6%B4%9E/"/>
+    
+    <category term="漏洞复现" scheme="https://xiaoyu-lane.github.io/tags/%E6%BC%8F%E6%B4%9E%E5%A4%8D%E7%8E%B0/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>RMI反序列化</title>
+    <link href="https://xiaoyu-lane.github.io/stcs/2023/07/3146666c304a/"/>
+    <id>https://xiaoyu-lane.github.io/stcs/2023/07/3146666c304a/</id>
+    <published>2023-07-03T05:45:55.000Z</published>
+    <updated>2025-05-08T15:36:47.456Z</updated>
+    
+    
+    <summary type="html">fastJson漏洞的前置知识点</summary>
+    
+    
+    
+    <category term="stcs" scheme="https://xiaoyu-lane.github.io/categories/stcs/"/>
+    
+    
+    <category term="渗透" scheme="https://xiaoyu-lane.github.io/tags/%E6%B8%97%E9%80%8F/"/>
+    
+    <category term="红队" scheme="https://xiaoyu-lane.github.io/tags/%E7%BA%A2%E9%98%9F/"/>
+    
+    <category term="Java漏洞" scheme="https://xiaoyu-lane.github.io/tags/Java%E6%BC%8F%E6%B4%9E/"/>
+    
+    <category term="漏洞" scheme="https://xiaoyu-lane.github.io/tags/%E6%BC%8F%E6%B4%9E/"/>
+    
+  </entry>
+  
+</feed>

